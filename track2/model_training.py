@@ -14,18 +14,18 @@ from hyperopt.fmin import fmin
 from sklearn.model_selection import StratifiedKFold
 
 
-def objective_zw(params):
+def objective_zw(params, X, y, train_weights, real_weights):
     params['iterations'] = max(50, int(params['iterations']))
     global best_score
     global iter_no
     scores = []
     skf = StratifiedKFold(n_splits=5, random_state=442)
     model = catboost.CatBoostClassifier(verbose=False, task_type = "GPU", border_count=254, **params)
-    for train_val_idx, test_val_idx in skf.split(full_train, full_train.label):
-        train_concat_val = train_concat.loc[train_val_idx]
-        train_labels_val = full_train.label.loc[train_val_idx]
-        test_concat_val = train_concat.loc[test_val_idx]
-        test_labels_val = full_train.label.loc[test_val_idx]
+    for train_val_idx, test_val_idx in skf.split(X, y):
+        train_concat_val = X.loc[train_val_idx]
+        train_labels_val = y.loc[train_val_idx]
+        test_concat_val = X.loc[test_val_idx]
+        test_labels_val = y.loc[test_val_idx]
         model.fit(train_concat_val,
                   train_labels_val,
                   sample_weight=train_weights.loc[train_val_idx],
@@ -48,6 +48,8 @@ def objective_zw(params):
 
 
 def main():
+    global best_score
+    global iter_no
     DATA_PATH = "../data"
     summ_dict = {}
 
@@ -71,7 +73,6 @@ def main():
         summ_dict
     except NameError:
         summ_dict = {}
-    iter_no = 1
     with open(DATA_PATH + '/hyper_tr2_zw.log', 'w') as f:
         pass
     s_time = time()
@@ -82,8 +83,7 @@ def main():
         'iterations': hp.quniform('iterations', 200, 700, 30),
         'depth': hp.quniform('depth', 6, 11, 1)
         }
-    best_score = .0
-    best = fmin(fn=objective_zw,
+    best = fmin(fn=lambda params: objective_zw(params, train_concat, full_train.label, train_weights, real_weights),
                 space=space,
                 algo=tpe.suggest,
                 max_evals=max_hyperopt_evals
@@ -106,10 +106,12 @@ def main():
     with open(DATA_PATH+'/summary_zw2.pkl', 'wb') as f:
         pickle.dump(summ_dict, f)
     model.set_params(task_type='CPU', thread_count=-1)
-    model.save_model("submission/track2_model.cbm")
-    get_ipython().system('zip subm.zip submission/*')
+    model.save_model("submission/track_2_model.cbm")
+    os.system('zip subm.zip submission/*')
 
     
 if __name__ == '__main__':
+    iter_no = 1
+    best_score = .0
     main()
     
