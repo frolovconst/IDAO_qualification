@@ -1,2 +1,6 @@
 /data/*
 !/data/.gitkeep
+.ipynb_checkpoints/
+__pycache__/
+track2/catboost_info/
+
